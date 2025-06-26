@@ -1,0 +1,44 @@
+# AIE7 - AI Engineering Bootcamp
+
+## Welcome to AIE7! 🚀
+
+This repository contains the course materials and assignments for the AI Engineering Bootcamp. Here you'll find everything you need to master the art of building, deploying, and operating Large Language Model (LLM) applications in production environments.
+
+## 📁 Repository Structure
+
+- **00_AIM_Quicklinks/** - Quick access to important resources
+- **00_Onramp/** - Getting started materials and tutorials
+- **00_OpenAI API Key Setup/** - API setup instructions
+- **00_Setting Up Git/** - Git configuration guide
+- **01_Prompt Engineering and Prototyping Best Practices/** - Core course materials
+
+## 🎯 Learning Objectives
+
+By the end of this bootcamp, you will be able to:
+
+- Build and deploy RAG (Retrieval Augmented Generation) applications
+- Work with Agent and Multi-Agent frameworks
+- Fine-tune LLMs and embedding models
+- Evaluate and monitor production LLM applications
+- Set up scalable inference servers
+- Implement production-grade LLM components
+
+## 🛠️ Prerequisites
+
+- Basic Python programming knowledge
+- Familiarity with Git and GitHub
+- OpenAI API key (setup instructions provided)
+- Enthusiasm for AI and machine learning!
+
+## 📚 Getting Started
+
+1. Clone this repository
+2. Follow the setup instructions in the respective directories
+3. Complete the onramp materials
+4. Dive into the main course content
+
+## 🤝 Community
+
+Join our community of AI engineers and enthusiasts! Share your projects, ask questions, and collaborate with fellow learners.
+
+Happy learning! 🎉 
