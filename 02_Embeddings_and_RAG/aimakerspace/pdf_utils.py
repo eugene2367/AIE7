@@ -2,7 +2,7 @@
 
 from typing import List
 import PyPDF2
-from .text_utils import TextSplitter, CharacterTextSplitter
+from .text_utils import CharacterTextSplitter
 
 class PDFLoader:
     """A class to load and process PDF documents."""
