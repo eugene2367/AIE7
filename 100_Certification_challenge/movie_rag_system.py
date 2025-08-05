@@ -79,6 +79,17 @@ query_enhanced_agent_with_tracing = None
 agent_tools = []
 unique_id = None
 
+# Chat prompt for RAG responses
+chat_prompt = ChatPromptTemplate.from_template("""
+You are a helpful assistant that answers questions about movies based on the provided context.
+
+Context: {context}
+
+Question: {question}
+
+Please provide a comprehensive answer based on the context above. If the context doesn't contain enough information to answer the question, say so clearly.
+""")
+
 def load_csv_robust(file_path):
     """Load CSV file with robust error handling"""
     try:
@@ -101,6 +112,61 @@ def estimate_tokens(text):
     """Estimate token count for text (rough approximation)"""
     # Rough approximation: 1 token ≈ 4 characters for English text
     return len(text) // 4
+
+def analyze_query_intent(query: str) -> dict:
+    """Analyze query intent to determine the best search strategy"""
+    query_lower = query.lower()
+    
+    intent = {
+        'type': 'general',
+        'search_strategy': 'general',
+        'keywords': [],
+        'time_period': None,
+        'specific_entity': None
+    }
+    
+    # Check for time-based queries
+    if any(word in query_lower for word in ['new', 'latest', 'recent', '2024', '2025', 'this year']):
+        intent['type'] = 'recent'
+        intent['time_period'] = 'recent'
+        intent['search_strategy'] = 'recent'
+        intent['keywords'].extend(['latest', '2024', '2025'])
+    
+    # Check for ranking queries
+    elif any(word in query_lower for word in ['best', 'top', 'greatest', 'highest', 'ranked']):
+        intent['type'] = 'ranking'
+        intent['search_strategy'] = 'best'
+        intent['keywords'].extend(['best', 'top', 'ranked'])
+    
+    elif any(word in query_lower for word in ['worst', 'bad', 'lowest', 'terrible', 'awful']):
+        intent['type'] = 'ranking'
+        intent['search_strategy'] = 'worst'
+        intent['keywords'].extend(['worst', 'bad', 'lowest'])
+    
+    # Check for specific entity queries
+    elif any(word in query_lower for word in ['director', 'filmmaker', 'directed by']):
+        intent['type'] = 'person'
+        intent['search_strategy'] = 'director'
+        intent['keywords'].extend(['director', 'filmmaker'])
+    
+    elif any(word in query_lower for word in ['actor', 'actress', 'star', 'starring']):
+        intent['type'] = 'person'
+        intent['search_strategy'] = 'actor'
+        intent['keywords'].extend(['actor', 'actress', 'star'])
+    
+    # Check for genre queries
+    elif any(word in query_lower for word in ['genre', 'type', 'action', 'comedy', 'drama', 'horror', 'sci-fi', 'romance']):
+        intent['type'] = 'genre'
+        intent['search_strategy'] = 'genre'
+        intent['keywords'].extend(['genre', 'type'])
+    
+    # Check for specific movie queries
+    elif any(word in query_lower for word in ['movie', 'film', 'title']):
+        intent['type'] = 'specific_movie'
+        intent['search_strategy'] = 'specific'
+        intent['keywords'].extend(['movie', 'film'])
+    
+    return intent
 
 def filter_movies_by_review_count(df, min_reviews=5):
     """Filter movies to only include those with at least min_reviews reviews"""
@@ -269,20 +335,22 @@ def create_review_documents(df, max_movies=5000, min_reviews=5):
     return documents
 
 def setup_external_search():
-    """Setup external search tools"""
+    """Setup external search tools with enhanced configuration"""
     global external_search_tool, has_tavily
     
-    print("🔧 Setting up external search tools...")
+    print("🔧 Setting up enhanced external search tools...")
     
-    # Option 1: Tavily Search (recommended)
+    # Option 1: Tavily Search (recommended) - Enhanced configuration
     try:
         tavily_search = TavilySearchResults(
-            max_results=3,
-            search_depth="basic",
+            max_results=5,  # Increased from 3 to get more results
+            search_depth="advanced",  # Changed from "basic" to "advanced" for better results
             include_answer=True,
-            include_raw_content=True
+            include_raw_content=True,
+            include_domains=["rottentomatoes.com", "imdb.com", "metacritic.com", "themoviedb.org"],  # Focus on movie sites
+            exclude_domains=["pinterest.com", "instagram.com", "facebook.com"]  # Exclude social media
         )
-        print("✅ Tavily search tool configured")
+        print("✅ Enhanced Tavily search tool configured")
         has_tavily = True
         external_search_tool = tavily_search
     except Exception as e:
@@ -300,7 +368,7 @@ def setup_external_search():
             func=fallback_search
         )
     
-    search_tool_name = "Tavily" if has_tavily else "Fallback"
+    search_tool_name = "Enhanced Tavily" if has_tavily else "Fallback"
     print(f"🔍 Using {search_tool_name} for external search")
 
 
@@ -309,13 +377,8 @@ def get_base_retriever():
     """Get the base retriever (can be dynamically switched)"""
     global base_retriever
     if base_retriever is None:
-        vectorstore = Qdrant.from_documents(
-            chunks,
-            embedding_model,
-            location=":memory:",
-            collection_name="MovieReviews_Default"
-        )
-        base_retriever = vectorstore.as_retriever(search_kwargs={"k": 3})
+        print("❌ Error: base_retriever not initialized! Call initialize_rag_system() first.")
+        return None
     return base_retriever
 
 def create_agent_tools():
@@ -325,67 +388,30 @@ def create_agent_tools():
     # Tool 1: Movie Review Search Tool
     def search_movie_reviews(query: str) -> str:
         """
-        Search through embedded movie documents from Rotten Tomatoes.
-        Each result contains a complete movie with all its reviews, metadata, and ratings.
+        Search through embedded movie reviews from Rotten Tomatoes.
         Use this for questions about specific movies, ratings, or review content.
-        This is the primary tool for finding detailed information about movies in our database.
         """
         try:
-            # Use the current base retriever
+            # Use the current base_retriever (will be swapped during evaluation)
             retriever = get_base_retriever()
-            docs = retriever.invoke(query)
+            retrieved_docs = retriever.get_relevant_documents(query)
             
-            if not docs:
-                return f"No relevant movie reviews found for: {query}"
+            # Check if we have sufficient relevant documents
+            if not retrieved_docs or len(retrieved_docs) == 0:
+                return f"🔍 No information found in our database for '{query}'. This movie may not be in our Rotten Tomatoes dataset."
             
-            # Format results
-            results = f"Found {len(docs)} relevant movie reviews for '{query}':\n\n"
+            # Generate response using RAG
+            generator_chain = chat_prompt | chat_model | StrOutputParser()
+            response = generator_chain.invoke({
+                "question": query, 
+                "context": retrieved_docs
+            })
             
-            # Track total content length (token safety already handled by TokenSafeRetriever)
-            total_tokens = 0
-            max_tokens_per_result = 2000  # Conservative limit per result for final formatting
-            max_total_tokens = 6000  # Total limit for all results (3 docs × 2k tokens)
-            
-            # Add info about token management
-            results += "ℹ️ Note: Results are automatically token-managed for optimal performance. Documents may be truncated.\n\n"
-            
-            for i, doc in enumerate(docs, 1):
-                metadata = doc.metadata
-                content = doc.page_content
-                
-                results += f"📽️ Result {i}:\n"
-                results += f"Movie: {metadata.get('movie_title', 'Unknown')}\n"
-                if metadata.get('genre'):
-                    results += f"Genre: {metadata.get('genre')}\n"
-                if metadata.get('director'):
-                    results += f"Director: {metadata.get('director')}\n"
-                if metadata.get('audience_score'):
-                    results += f"Audience Score: {metadata.get('audience_score')}%\n"
-                if metadata.get('tomato_meter'):
-                    results += f"Tomato Meter: {metadata.get('tomato_meter')}%\n"
-                if metadata.get('total_reviews'):
-                    results += f"Total Reviews: {metadata.get('total_reviews')}\n"
-                
-                # Estimate tokens and truncate content to avoid token limits
-                content_tokens = estimate_tokens(content)
-                if content_tokens > max_tokens_per_result:
-                    # Truncate to approximately max_tokens_per_result tokens
-                    max_chars = max_tokens_per_result * 4  # Rough conversion back to chars
-                    content = content[:max_chars] + "... [Content truncated due to token limits]"
-                    content_tokens = max_tokens_per_result
-                
-                results += f"Content: {content}\n\n"
-                total_tokens += content_tokens
-                
-                # Stop if we're approaching the total limit
-                if total_tokens > max_total_tokens:
-                    results += f"... [Additional results truncated due to token limits]\n"
-                    break
-            
-            return results
-            
+            return response
         except Exception as e:
             return f"Error searching reviews: {str(e)}"
+
+    print("✅ Created search_movie_reviews tool")
 
     # Tool 2: Movie Statistics Analysis Tool
     def analyze_movie_statistics(movie_name: str = "") -> str:
@@ -632,48 +658,165 @@ def create_agent_tools():
     # Tool 3: Smart External Movie Search
     def search_external_movie_info(query: str) -> str:
         """
-        Search external sites for movie information when RAG results don't match the query.
-        This tool is designed to be used when the retrieved documents don't contain
-        information about the specific movie being asked about.
+        Enhanced external search tool that intelligently determines when to use Tavily search.
+        This tool analyzes RAG results for relevance and uses external search when local data is insufficient.
         """
         try:
+            # Extract the movie name from the query for better external search
+            query_words = query.split()
+            movie_keywords = []
+            for word in query_words:
+                if len(word) > 2 and word.lower() not in ['the', 'and', 'for', 'with', 'about', 'tell', 'me', 'what', 'is', 'are', 'was', 'were', 'searching', 'external', 'sources', 'no', 'information', 'found', 'database']:
+                    movie_keywords.append(word)
+            movie_name = ' '.join(movie_keywords) if movie_keywords else query
+            
             # First, try to get RAG results to see if we have relevant info
             retriever = get_base_retriever()
             rag_docs = retriever.invoke(query)
             
-            # Check if RAG results are relevant to the query
+            # Enhanced relevance detection
             query_lower = query.lower()
+            query_words = [word for word in query_lower.split() if len(word) > 2]  # Include shorter words
             relevant_rag_results = False
+            relevance_score = 0
+            found_movies = []
             
+            # Analyze each RAG document for relevance
             for doc in rag_docs:
                 content_lower = doc.page_content.lower()
-                # Check if the query mentions a specific movie and if that movie appears in the RAG results
-                if any(word in content_lower for word in query_lower.split() if len(word) > 3):
-                    relevant_rag_results = True
-                    break
-            
-            # If RAG results are relevant, suggest using those instead
-            if relevant_rag_results:
-                return f"RAG results appear to contain relevant information for '{query}'. Consider using the search_movie_reviews tool first to get detailed information from our database."
-            
-            # If no relevant RAG results, perform external search
-            search_string = f'movie {query} reviews ratings news'
-            
-            if has_tavily:
-                result = external_search_tool.invoke({"query": search_string})
-                snippets = []
-                for item in result[:3]:
-                    if isinstance(item, dict):
-                        url = item.get("url", "")
-                        content = (item.get("content", "") or "").strip()
-                        snippets.append(f"Source: {url}\n{content[:300]}…")
                 
-                if snippets:
-                    return f"External search results for '{query}':\n\n" + "\n\n".join(snippets)
+                # Check for movie title matches (more sophisticated)
+                for word in query_words:
+                    if word in content_lower:
+                        relevance_score += 1
+                
+                # Check for specific movie mentions in metadata
+                if hasattr(doc, 'metadata') and doc.metadata:
+                    movie_title = doc.metadata.get('movie_title', '').lower()
+                    if any(word in movie_title for word in query_words):
+                        relevance_score += 3  # Higher weight for title matches
+                        found_movies.append(doc.metadata.get('movie_title', ''))
+                
+                # Check for genre, director, or other metadata matches
+                if hasattr(doc, 'metadata') and doc.metadata:
+                    genre = doc.metadata.get('genre', '').lower()
+                    director = doc.metadata.get('director', '').lower()
+                    if any(word in genre for word in query_words) or any(word in director for word in query_words):
+                        relevance_score += 2
+            
+            # Determine if RAG results are sufficiently relevant
+            relevant_rag_results = relevance_score >= 2  # Threshold for considering results relevant
+            
+            # Debug: Log relevance analysis
+            print(f"🔍 Relevance analysis for '{query}': score={relevance_score}, found_movies={len(found_movies)}")
+            
+            # If RAG results are highly relevant, suggest using them instead
+            if relevant_rag_results and relevance_score >= 3:
+                if found_movies:
+                    return f"🎬 RAG results contain highly relevant information for '{query}' including movies: {', '.join(set(found_movies))}. Consider using the search_movie_reviews tool first to get detailed information from our database."
                 else:
-                    return f"No external results found for '{query}'."
+                    return f"📚 RAG results appear to contain relevant information for '{query}'. Consider using the search_movie_reviews tool first to get detailed information from our database."
+            
+            # If RAG results are somewhat relevant but not comprehensive, use both
+            elif relevant_rag_results and relevance_score >= 2:
+                rag_suggestion = f"📚 RAG results contain some relevant information for '{query}'."
+                if found_movies:
+                    rag_suggestion += f" Found movies: {', '.join(set(found_movies))}. "
+                rag_suggestion += "Using external search to supplement local data."
+                
+                # Proceed with external search
+                search_string = f'movie {query} reviews ratings news 2024 2025'
+                
+                if has_tavily:
+                    result = external_search_tool.invoke({"query": search_string})
+                    snippets = []
+                    for item in result[:3]:
+                        if isinstance(item, dict):
+                            url = item.get("url", "")
+                            content = (item.get("content", "") or "").strip()
+                            snippets.append(f"Source: {url}\n{content[:400]}…")
+                    
+                    if snippets:
+                        return f"{rag_suggestion}\n\n🌐 External search results for '{query}':\n\n" + "\n\n".join(snippets)
+                    else:
+                        return f"{rag_suggestion}\n\n❌ No external results found for '{query}'."
+                else:
+                    return f"{rag_suggestion}\n\n{external_search_tool.run(search_string)}"
+            
+            # If no relevant RAG results, perform comprehensive external search
             else:
-                return external_search_tool.run(search_string)
+                # Use intent analysis for better search strategies
+                intent = analyze_query_intent(query)
+                
+                # Enhanced search strategies based on query intent
+                if intent['search_strategy'] == 'recent':
+                    search_string = f'latest movie {query} reviews ratings 2024 2025'
+                elif intent['search_strategy'] == 'best':
+                    search_string = f'best movies {query} reviews ratings rankings'
+                elif intent['search_strategy'] == 'worst':
+                    search_string = f'worst movies {query} reviews ratings'
+                elif intent['search_strategy'] == 'director':
+                    search_string = f'movie director {query} filmography reviews'
+                elif intent['search_strategy'] == 'actor':
+                    search_string = f'movie actor {query} filmography reviews'
+                elif intent['search_strategy'] == 'genre':
+                    search_string = f'{query} genre movies reviews ratings'
+                elif intent['search_strategy'] == 'specific':
+                    search_string = f'movie {query} reviews ratings news'
+                else:
+                    search_string = f'movie {query} reviews ratings news latest'
+                
+                if has_tavily:
+                    # Try multiple search strategies for better results
+                    search_results = []
+                    
+                    # Debug: Log search strategy
+                    print(f"🔍 External search using strategy: {intent['search_strategy']} for query: '{query}'")
+                    
+                    # Primary search
+                    try:
+                        primary_result = external_search_tool.invoke({"query": search_string})
+                        search_results.extend(primary_result[:2])
+                        print(f"✅ Primary search returned {len(primary_result)} results")
+                    except Exception as e:
+                        print(f"❌ Primary search failed: {e}")
+                    
+                    # Fallback search with different terms
+                    if len(search_results) < 2:
+                        try:
+                            fallback_search = f'{query} movie reviews ratings'
+                            fallback_result = external_search_tool.invoke({"query": fallback_search})
+                            search_results.extend(fallback_result[:2])
+                            print(f"✅ Fallback search returned {len(fallback_result)} results")
+                        except Exception as e:
+                            print(f"❌ Fallback search failed: {e}")
+                    
+                    # Process and format results
+                    snippets = []
+                    seen_urls = set()
+                    
+                    for item in search_results:
+                        if isinstance(item, dict):
+                            url = item.get("url", "")
+                            if url not in seen_urls:  # Avoid duplicates
+                                seen_urls.add(url)
+                                content = (item.get("content", "") or "").strip()
+                                title = item.get("title", "")
+                                
+                                # Enhanced formatting
+                                snippet = f"📰 {title}\n"
+                                snippet += f"🔗 Source: {url}\n"
+                                snippet += f"📝 {content[:500]}…"
+                                snippets.append(snippet)
+                    
+                    if snippets:
+                        print(f"✅ External search successful: {len(snippets)} unique results found")
+                        return f"🌐 External search results for '{query}':\n\n" + "\n\n".join(snippets)
+                    else:
+                        print(f"❌ No external results found for '{query}'")
+                        return f"❌ No external results found for '{query}'. This might be a very specific or obscure query."
+                else:
+                    return external_search_tool.run(search_string)
 
         except Exception as e:
             return f"External search error: {e}"
@@ -710,14 +853,27 @@ def create_enhanced_agent():
 Your tools:
 1. search_movie_reviews: Search embedded movie reviews from Rotten Tomatoes
 2. analyze_movie_statistics: Get numerical statistics about movies and datasets  
-3. search_external_movie_info: Search external sources when local data is insufficient
+3. search_external_movie_info: Enhanced external search that intelligently determines when to use Tavily
 
-Guidelines:
-- Start with local review data (search_movie_reviews) for most questions
-- Use statistics tools for numerical analysis
-- Only use external search when local data is clearly insufficient
-- Always explain your reasoning and cite sources
-- Provide comprehensive, insightful answers
+CRITICAL ROUTING RULES:
+- ALWAYS start with search_movie_reviews for movie-specific questions
+- If search_movie_reviews returns ANY of these phrases, IMMEDIATELY call search_external_movie_info:
+  * "no information found" or "not in our database"
+  * "is not widely recognized" or "not widely documented"
+  * "relatively obscure title" or "lesser-known project"
+  * "couldn't find specific information" or "no specific reviews"
+  * "seems that" (when followed by negative information)
+  * "isn't any available information" or "isn't any specific information"
+  * "doesn't appear to be widely recognized"
+  * Any response indicating the movie is not in the database
+- DO NOT generate speculative responses when no information is found - use external search instead
+- Use analyze_movie_statistics for dataset analysis and statistics
+- Use search_external_movie_info for:
+  * Recent movies (2024-2025) not in database
+  * Actors, directors, filmmakers
+  * Genre questions
+  * Best/worst rankings
+  * When local data is insufficient
 
 Current question: {question}
 """
@@ -862,7 +1018,7 @@ Current question: {question}
     
     print("🚀 Enhanced agent ready for movie analysis!")
 
-def initialize_rag_system(max_movies=5000, min_reviews=5):
+def initialize_rag_system(max_movies=1000, min_reviews=5):
     """Initialize the advanced agentic RAG system with configurable filtering"""
     global chat_model, embedding_model, all_documents, chunks, merged_df, movies_df, reviews_df
     global base_retriever, enhanced_agent, query_enhanced_agent_with_tracing
@@ -907,6 +1063,7 @@ def initialize_rag_system(max_movies=5000, min_reviews=5):
         
         # Convert to LangChain documents
         print("🔪 Using each movie as a separate chunk...")
+        global chunks
         chunks = []
         for doc in all_documents:
             langchain_doc = Document(
@@ -919,8 +1076,21 @@ def initialize_rag_system(max_movies=5000, min_reviews=5):
         
         # Initialize models
         print("🧠 Initializing models...")
+        global embedding_model, chat_model
         embedding_model = OpenAIEmbeddings(model="text-embedding-3-small")
         chat_model = ChatOpenAI(model="gpt-4o-mini", temperature=0.1, max_tokens=4000)
+        
+        # Create vector store and retriever ONCE during initialization
+        print("🔍 Creating vector store and embeddings (this may take a moment)...")
+        global base_retriever
+        vectorstore = Qdrant.from_documents(
+            chunks,
+            embedding_model,
+            location=":memory:",
+            collection_name="MovieReviews_Default"
+        )
+        base_retriever = vectorstore.as_retriever(search_kwargs={"k": 5})
+        print(f"✅ Vector store created with {len(chunks)} documents")
         
         # Setup LangSmith tracing
         print("🔍 Setting up LangSmith tracing...")
