@@ -87,12 +87,12 @@ Do this by creating a Simple Agent that can make API calls to the 🤖Agent Node
 
 ### 🤖 Simple Agent Graph (`app/simple_agent_graph.py`)
 
-The Simple Agent Graph creates a LangGraph-based agent that can interact with your existing A2A protocol implementation:
+The Simple Agent Graph creates a LangGraph-based agent that now delegates to the full A2A agent graph with tools and helpfulness evaluation:
 
-- **4-Node Graph Structure**: analyze_query → interact_with_a2a → evaluate_response → generate_final_response
-- **A2A Protocol Client**: Makes HTTP API calls to your existing A2A server
-- **State Management**: Tracks messages, A2A responses, and conversation context
-- **Error Handling**: Graceful fallbacks when A2A server is unavailable
+- **Delegates to A2A Graph**: Calls `app/agent_graph_with_helpfulness.py` (LLM + Tools + Helpfulness)
+- **Orchestrator Flow**: analyze_query → call_a2a_agent → process_a2a_response → generate_final_response
+- **State Management**: Uses LangGraph checkpointer (`thread_id`) to persist state
+- **Error Handling**: Robust logging and graceful fallbacks
 
 ### 🧠 Persona Agents (`app/persona_agent_graph.py`)
 
@@ -135,29 +135,31 @@ uv run python app/demo_a2a_workflow.py
 
 ```mermaid
 graph TD
-    A[👤 User Query] --> B[🔍 Analyze Query Node]
-    B --> C[🤖 Interact with A2A Node]
-    C --> D[📊 Evaluate Response Node]
-    D --> E[💬 Generate Final Response Node]
+    A[👤 User Query] --> B[🔍 Analyze Query]
+    B --> C[📤 Call A2A Agent Graph]
+    C --> D[📥 Process A2A Response]
+    D --> E[💬 Generate Final Response]
     E --> F[🏁 END]
-    
-    B -->|"Enhanced Query"| C
-    C -->|"A2A Response"| D
-    D -->|"Evaluation Complete"| E
-    
-    style A fill:#1e3a5f,stroke:#ffffff,stroke-width:3px,color:#ffffff
-    style B fill:#4a148c,stroke:#ffffff,stroke-width:3px,color:#ffffff
-    style C fill:#0d47a1,stroke:#ffffff,stroke-width:3px,color:#ffffff
-    style D fill:#1b5e20,stroke:#ffffff,stroke-width:3px,color:#ffffff
-    style E fill:#e65100,stroke:#ffffff,stroke-width:3px,color:#ffffff
-    style F fill:#c62828,stroke:#ffffff,stroke-width:3px,color:#ffffff
+
+    subgraph "A2A Agent Graph (Tools + Helpfulness)"
+        A0["🤖 Agent Node (LLM + Tools)"] --> A1{"🔍 Tool Calls Needed?"}
+        A1 -->|Yes| A2["⚡ Action Node (Tool Execution)"]
+        A2 --> A0
+        A1 -->|No| A3["🎯 Helpfulness Node"]
+        A3 --> A4{"✅ Helpful?"}
+        A4 -->|Y| A5["🏁 Return Result"]
+        A4 -->|N| A0
+    end
+
+    C -. triggers .-> A0
+    A5 -. returns .-> D
 ```
 
 **Simple Agent Flow Description:**
-1. **Analyze Query**: LLM enhances the user query for better A2A interaction
-2. **Interact with A2A**: Makes JSON-RPC call to your A2A server
-3. **Evaluate Response**: Processes the A2A response
-4. **Generate Final Response**: Creates the final user-facing response
+1. **Analyze Query**: LLM enhances the user query for optimal A2A interaction
+2. **Call A2A Agent Graph**: Invokes the tools + helpfulness graph to do the heavy lifting
+3. **Process A2A Response**: Extracts final content (skipping HELPFULNESS markers)
+4. **Generate Final Response**: Formats a coherent answer with context
 
 ### Persona Agent Graph Flow
 
