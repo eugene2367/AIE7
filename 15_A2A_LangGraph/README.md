@@ -165,29 +165,27 @@ graph TD
 
 ```mermaid
 graph TD
-    A[👤 User Query] --> B[🎭 Persona Analysis Node]
-    B --> C[🎯 Strategic Interaction Node]
-    C --> D[📊 Response Evaluation Node]
-    D --> E[🔍 Helpfulness Decision Node]
-    E --> F[💬 Persona Response Node]
+    A[👤 User Query] --> B[🎭 Persona Analysis]
+    B --> C[🎯 Strategic Interaction]
+    C --> D[📊 Response Evaluation]
+    D --> E[🔍 Helpfulness Decision]
+    E --> F[💬 Persona Response]
     F --> G[🏁 END]
     
     B -->|"Persona Strategy"| C
-    C -->|"A2A Response"| D
-    D -->|"Helpfulness Evaluation"| E
-    E -->|"Helpful/Unhelpful"| F
     
-    subgraph "Persona Types"
-        P1[🧠 ML Expert]
-        P2[💼 Business Analyst]
-        P3[🎓 Curious Student]
-        P4[🔍 Skeptical Reviewer]
+    subgraph "A2A Agent Graph (Tools + Helpfulness)"
+        A0["🤖 Agent Node (LLM + Tools)"] --> A1{"🔍 Tool Calls Needed?"}
+        A1 -->|Yes| A2["⚡ Action Node (Tool Execution)"]
+        A2 --> A0
+        A1 -->|No| A3["🎯 Helpfulness Node"]
+        A3 --> A4{"✅ Helpful?"}
+        A4 -->|Y| A5["🏁 Return Result"]
+        A4 -->|N| A0
     end
-    
-    B --> P1
-    B --> P2
-    B --> P3
-    B --> P4
+
+    C -. triggers .-> A0
+    A5 -. returns .-> D
     
     style A fill:#1e3a5f,stroke:#ffffff,stroke-width:3px,color:#ffffff
     style B fill:#4a148c,stroke:#ffffff,stroke-width:3px,color:#ffffff
@@ -196,17 +194,13 @@ graph TD
     style E fill:#ff6f00,stroke:#ffffff,stroke-width:3px,color:#ffffff
     style F fill:#e65100,stroke:#ffffff,stroke-width:3px,color:#ffffff
     style G fill:#c62828,stroke:#ffffff,stroke-width:3px,color:#ffffff
-    style P1 fill:#6a1b9a,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style P2 fill:#6a1b9a,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style P3 fill:#6a1b9a,stroke:#ffffff,stroke-width:2px,color:#ffffff
-    style P4 fill:#6a1b9a,stroke:#ffffff,stroke-width:2px,color:#ffffff
 ```
 
 **Persona Agent Flow Description:**
 1. **Persona Analysis**: LLM analyzes query through the lens of a specific persona (ML Expert, Business Analyst, etc.)
-2. **Strategic Interaction**: Makes targeted A2A calls based on persona goals and communication style
-3. **Response Evaluation**: Evaluates if A2A response meets the persona's specific needs and goals
-4. **Helpfulness Decision**: Routes based on helpfulness evaluation (ready for future follow-up logic)
+2. **Strategic Interaction (Delegates to A2A Graph)**: Invokes the A2A agent graph (LLM + Tools + Helpfulness)
+3. **Response Evaluation**: Persona-aware evaluation of the returned content
+4. **Helpfulness Decision**: Record persona helpfulness and proceed
 5. **Persona Response**: Generates response in the persona's unique voice and perspective
 
 ### Key Differences
