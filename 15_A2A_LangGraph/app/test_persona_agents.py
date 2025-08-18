@@ -22,191 +22,213 @@ from app.persona_agent_graph import PersonaAgent
 
 async def test_ml_expert_persona():
     """Test the Machine Learning Expert persona."""
-    
     print("🧠 Testing Machine Learning Expert Persona")
     print("=" * 60)
     
-    agent = PersonaAgent("ml_expert")
+    # Initialize the ML Expert persona
+    agent = PersonaAgent("Machine Learning Expert")
     
     try:
-        # Test query that would interest an ML expert
+        # Test query
         test_query = "What makes Kimi K2 so incredible? I want technical details and academic sources."
-        
         print(f"Query: {test_query}")
-        print(f"Persona Goals: {', '.join(agent.persona_config['goals'])}")
-        print(f"Persona Style: {agent.persona_config['style']}")
+        print(f"Persona Goals: {', '.join(agent._get_persona_config()['goals'])}")
+        print(f"Persona Style: {agent._get_persona_config()['style']}")
         print("-" * 60)
         
         result = await agent.process_query(test_query)
         
         if result["success"]:
             print("✅ Success!")
-            print(f"Response: {result['response']}")
-            print(f"A2A Interactions: {result['a2a_interactions']}")
+            print("\n📝 FINAL RESPONSE:")
+            print("=" * 50)
+            print(result['response'])
+            print("=" * 50)
+            print(f"\n📊 A2A Interactions: {result['a2a_interactions']}")
+            if result.get("thread_id"):
+                print(f"🔗 Thread ID: {result['thread_id']}")
         else:
             print("❌ Failed!")
             print(f"Error: {result['error']}")
-    
+            
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f"❌ Test failed with error: {e}")
         import traceback
         traceback.print_exc()
     
     finally:
-        await agent.close()
-
+        # No cleanup needed for the model
+        pass
+    
+    print("-" * 60)
 
 async def test_business_analyst_persona():
     """Test the Business Analyst persona."""
-    
-    print("\n💼 Testing Business Analyst Persona")
+    print("💼 Testing Business Analyst Persona")
     print("=" * 60)
     
-    agent = PersonaAgent("business_analyst")
+    # Initialize the Business Analyst persona
+    agent = PersonaAgent("Business Analyst")
     
     try:
-        # Test query that would interest a business analyst
-        test_query = "What are the business implications of recent AI developments? I need practical insights and market data."
-        
+        # Test query
+        test_query = "What are the latest developments in artificial intelligence?"
         print(f"Query: {test_query}")
-        print(f"Persona Goals: {', '.join(agent.persona_config['goals'])}")
-        print(f"Persona Style: {agent.persona_config['style']}")
+        print(f"Persona Goals: {', '.join(agent._get_persona_config()['goals'])}")
+        print(f"Persona Style: {agent._get_persona_config()['style']}")
         print("-" * 60)
         
         result = await agent.process_query(test_query)
         
         if result["success"]:
             print("✅ Success!")
-            print(f"Response: {result['response']}")
-            print(f"A2A Interactions: {result['a2a_interactions']}")
+            print("\n📝 FINAL RESPONSE:")
+            print("=" * 50)
+            print(result['response'])
+            print("=" * 50)
+            print(f"\n📊 A2A Interactions: {result['a2a_interactions']}")
+            if result.get("thread_id"):
+                print(f"🔗 Thread ID: {result['thread_id']}")
         else:
             print("❌ Failed!")
             print(f"Error: {result['error']}")
-    
+            
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f"❌ Test failed with error: {e}")
+        import traceback
+        traceback.print_exc()
     
     finally:
-        await agent.close()
-
+        # No cleanup needed for the model
+        pass
+    
+    print("-" * 60)
 
 async def test_curious_student_persona():
     """Test the Curious Student persona."""
-    
-    print("\n🎓 Testing Curious Student Persona")
+    print("🎓 Testing Curious Student Persona")
     print("=" * 60)
     
-    agent = PersonaAgent("curious_student")
+    # Initialize the Curious Student persona
+    agent = PersonaAgent("Curious Student")
     
     try:
-        # Test query that would interest a curious student
-        test_query = "Can you explain what transformers are in simple terms? I want to understand the basics and see real examples."
-        
+        # Test query
+        test_query = "What are the latest developments in artificial intelligence?"
         print(f"Query: {test_query}")
-        print(f"Persona Goals: {', '.join(agent.persona_config['goals'])}")
-        print(f"Persona Style: {agent.persona_config['style']}")
+        print(f"Persona Goals: {', '.join(agent._get_persona_config()['goals'])}")
+        print(f"Persona Style: {agent._get_persona_config()['style']}")
         print("-" * 60)
         
         result = await agent.process_query(test_query)
         
         if result["success"]:
             print("✅ Success!")
-            print(f"Response: {result['response']}")
-            print(f"A2A Interactions: {result['a2a_interactions']}")
+            print("\n📝 FINAL RESPONSE:")
+            print("=" * 50)
+            print(result['response'])
+            print("=" * 50)
+            print(f"\n📊 A2A Interactions: {result['a2a_interactions']}")
+            if result.get("thread_id"):
+                print(f"🔗 Thread ID: {result['thread_id']}")
         else:
             print("❌ Failed!")
             print(f"Error: {result['error']}")
-    
+            
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f"❌ Test failed with error: {e}")
+        import traceback
+        traceback.print_exc()
     
     finally:
-        await agent.close()
-
+        # No cleanup needed for the model
+        pass
+    
+    print("-" * 60)
 
 async def test_skeptical_reviewer_persona():
     """Test the Skeptical Reviewer persona."""
-    
-    print("\n🔍 Testing Skeptical Reviewer Persona")
+    print("🔍 Testing Skeptical Reviewer Persona")
     print("=" * 60)
     
-    agent = PersonaAgent("skeptical_reviewer")
+    # Initialize the Skeptical Reviewer persona
+    agent = PersonaAgent("Skeptical Reviewer")
     
     try:
-        # Test query that would interest a skeptical reviewer
-        test_query = "What evidence supports the claims about AI capabilities? I want to see multiple sources and understand limitations."
-        
+        # Test query
+        test_query = "What are the latest developments in artificial intelligence?"
         print(f"Query: {test_query}")
-        print(f"Persona Goals: {', '.join(agent.persona_config['goals'])}")
-        print(f"Persona Style: {agent.persona_config['style']}")
+        print(f"Persona Goals: {', '.join(agent._get_persona_config()['goals'])}")
+        print(f"Persona Style: {agent._get_persona_config()['style']}")
         print("-" * 60)
         
         result = await agent.process_query(test_query)
         
         if result["success"]:
             print("✅ Success!")
-            print(f"Response: {result['response']}")
-            print(f"A2A Interactions: {result['a2a_interactions']}")
+            print("\n📝 FINAL RESPONSE:")
+            print("=" * 50)
+            print(result['response'])
+            print("=" * 50)
+            print(f"\n📊 A2A Interactions: {result['a2a_interactions']}")
+            if result.get("thread_id"):
+                print(f"🔗 Thread ID: {result['thread_id']}")
         else:
             print("❌ Failed!")
             print(f"Error: {result['error']}")
-    
+            
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f"❌ Test failed with error: {e}")
+        import traceback
+        traceback.print_exc()
     
     finally:
-        await agent.close()
+        # No cleanup needed for the model
+        pass
+    
+    print("-" * 60)
 
 
 async def test_persona_comparison():
-    """Test all personas with the same query to see how they differ."""
-    
+    """Test how different personas handle the same query."""
     print("\n🔄 Testing Persona Comparison - Same Query, Different Perspectives")
     print("=" * 80)
     
-    personas = ["ml_expert", "business_analyst", "curious_student", "skeptical_reviewer"]
+    # Test the same query with different personas
     test_query = "What are the latest developments in artificial intelligence?"
-    
     print(f"Query: {test_query}")
     print("=" * 80)
     
-    results = {}
+    # Test different personas
+    personas = ["Machine Learning Expert", "Business Analyst", "Curious Student", "Skeptical Reviewer"]
     
     for persona in personas:
-        print(f"\n🧠 {PersonaAgent.PERSONAS[persona]['name']}")
+        print(f"\n🧠 {persona}")
         print("-" * 40)
         
-        agent = PersonaAgent(persona)
-        
         try:
+            agent = PersonaAgent(persona)
             result = await agent.process_query(test_query)
             
             if result["success"]:
                 print("✅ Success!")
-                print(f"Response Preview: {result['response'][:200]}...")
-                print(f"A2A Interactions: {result['a2a_interactions']}")
-                results[persona] = result
+                print(f"📊 A2A Interactions: {result['a2a_interactions']}")
+                if result.get("thread_id"):
+                    print(f"🔗 Thread ID: {result['thread_id']}")
+                
+                # Show a snippet of the response
+                response = result['response']
+                if len(response) > 200:
+                    print(f"📝 Response Preview: {response[:200]}...")
+                else:
+                    print(f"📝 Response: {response}")
             else:
-                print("❌ Failed!")
-                print(f"Error: {result['error']}")
-        
+                print(f"❌ Failed: {result['error']}")
+                
         except Exception as e:
-            print(f"❌ Test failed: {e}")
+            print(f"❌ Error testing {persona}: {e}")
         
-        finally:
-            await agent.close()
-    
-    # Summary comparison
-    print("\n" + "=" * 80)
-    print("📊 PERSONA COMPARISON SUMMARY")
-    print("=" * 80)
-    
-    for persona, result in results.items():
-        if result and result.get("success"):
-            print(f"\n{PersonaAgent.PERSONAS[persona]['name']}:")
-            print(f"  - A2A Interactions: {result['a2a_interactions']}")
-            print(f"  - Response Length: {len(result['response'])} characters")
-            print(f"  - Style: {PersonaAgent.PERSONAS[persona]['style']}")
+        print("-" * 40)
 
 
 def check_a2a_server():
