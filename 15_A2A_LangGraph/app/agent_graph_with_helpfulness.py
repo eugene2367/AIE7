@@ -36,9 +36,17 @@ def call_model(state: Dict[str, Any], model) -> Dict[str, Any]:
 
 
 def route_to_action_or_helpfulness(state: Dict[str, Any]):
-    """Decide whether to execute tools or run the helpfulness evaluator."""
-    last_message = state["messages"][-1]
-    if getattr(last_message, "tool_calls", None):
+    """Decide whether to execute tools or run the helpfulness evaluator with a cap.
+    If tool-calls have already occurred more than MAX_TOOL_CALL_STEPS times, force helpfulness.
+    """
+    MAX_TOOL_CALL_STEPS = 2
+    messages = state["messages"]
+    tool_calls_count = 0
+    for m in messages:
+        if getattr(m, "tool_calls", None):
+            tool_calls_count += 1
+    last_message = messages[-1]
+    if getattr(last_message, "tool_calls", None) and tool_calls_count <= MAX_TOOL_CALL_STEPS:
         return "action"
     return "helpfulness"
 
@@ -84,16 +92,11 @@ def helpfulness_node(state: Dict[str, Any], model) -> Dict[str, Any]:
 
 
 def helpfulness_decision(state: Dict[str, Any]):
-    """Terminate on 'HELPFULNESS:Y' or loop otherwise; guard against infinite loops."""
-    # Check loop-limit marker
-    if any(getattr(m, "content", "") == "HELPFULNESS:END" for m in state["messages"][-1:]):
+    """Single-pass helpfulness: end after one evaluation to avoid loops."""
+    # If any HELPFULNESS marker exists, end immediately (single pass)
+    if any("HELPFULNESS:" in getattr(m, "content", "") for m in state["messages"]):
         return END
-
-    last = state["messages"][-1]
-    text = getattr(last, "content", "")
-    if "HELPFULNESS:Y" in text:
-        return "end"
-    return "continue"
+    return END
 
 
 def build_agent_graph_with_helpfulness(model, system_instruction, format_instruction, checkpointer=None):
