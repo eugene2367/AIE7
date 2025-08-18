@@ -103,7 +103,9 @@ Advanced implementation demonstrating different agent personas with unique goals
 - **Curious Student**: Wants fundamental explanations and learning resources
 - **Skeptical Reviewer**: Questions claims and seeks verification
 
-Each persona has different communication styles and evaluation criteria when interacting with the A2A agent.
+Each persona has different communication styles and evaluation criteria when interacting with the A2A agent, showcasing how the protocol enables diverse agent behaviors while maintaining consistent communication patterns.
+
+**Updated Flow**: Now includes **helpfulness evaluation** that assesses whether A2A responses meet each persona's specific goals and needs, providing quality control and future extensibility for follow-up interactions.
 
 ### 🧪 Testing & Demo Scripts
 
@@ -163,13 +165,15 @@ graph TD
 graph TD
     A[👤 User Query] --> B[🎭 Persona Analysis Node]
     B --> C[🎯 Strategic Interaction Node]
-    C --> D[⚡ Response Evaluation Node]
-    D --> E[💬 Persona Response Node]
-    E --> F[🏁 END]
+    C --> D[📊 Response Evaluation Node]
+    D --> E[🔍 Helpfulness Decision Node]
+    E --> F[💬 Persona Response Node]
+    F --> G[🏁 END]
     
     B -->|"Persona Strategy"| C
     C -->|"A2A Response"| D
-    D -->|"Fast Pass"| E
+    D -->|"Helpfulness Evaluation"| E
+    E -->|"Helpful/Unhelpful"| F
     
     subgraph "Persona Types"
         P1[🧠 ML Expert]
@@ -187,8 +191,9 @@ graph TD
     style B fill:#4a148c,stroke:#ffffff,stroke-width:3px,color:#ffffff
     style C fill:#0d47a1,stroke:#ffffff,stroke-width:3px,color:#ffffff
     style D fill:#1b5e20,stroke:#ffffff,stroke-width:3px,color:#ffffff
-    style E fill:#e65100,stroke:#ffffff,stroke-width:3px,color:#ffffff
-    style F fill:#c62828,stroke:#ffffff,stroke-width:3px,color:#ffffff
+    style E fill:#ff6f00,stroke:#ffffff,stroke-width:3px,color:#ffffff
+    style F fill:#e65100,stroke:#ffffff,stroke-width:3px,color:#ffffff
+    style G fill:#c62828,stroke:#ffffff,stroke-width:3px,color:#ffffff
     style P1 fill:#6a1b9a,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style P2 fill:#6a1b9a,stroke:#ffffff,stroke-width:2px,color:#ffffff
     style P3 fill:#6a1b9a,stroke:#ffffff,stroke-width:2px,color:#ffffff
@@ -198,18 +203,19 @@ graph TD
 **Persona Agent Flow Description:**
 1. **Persona Analysis**: LLM analyzes query through the lens of a specific persona (ML Expert, Business Analyst, etc.)
 2. **Strategic Interaction**: Makes targeted A2A calls based on persona goals and communication style
-3. **Response Evaluation**: Fast-pass evaluation (no looping)
-4. **Persona Response**: Generates response in the persona's unique voice and perspective
+3. **Response Evaluation**: Evaluates if A2A response meets the persona's specific needs and goals
+4. **Helpfulness Decision**: Routes based on helpfulness evaluation (ready for future follow-up logic)
+5. **Persona Response**: Generates response in the persona's unique voice and perspective
 
 ### Key Differences
 
 | Aspect | Simple Agent | Persona Agent |
 |--------|--------------|---------------|
 | **Purpose** | Direct A2A interaction | Persona-specific A2A interaction |
-| **Flow** | 4 sequential nodes | 4 sequential nodes with persona context |
-| **Evaluation** | Standard response evaluation | Fast-pass (no looping) |
+| **Flow** | 4 sequential nodes | 5 sequential nodes with persona context |
+| **Evaluation** | Standard response evaluation | Persona-aware helpfulness evaluation |
 | **Output** | Enhanced user response | Persona-characterized response |
-| **Use Case** | General A2A communication | Specialized agent behaviors |
+| **Use Case** | General A2A communication | Specialized agent behaviors with quality control |
 
 ### ❓ Question #1:
 
